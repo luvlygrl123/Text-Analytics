@@ -13,6 +13,9 @@ library(tidytext)
 library(gutenbergr)
 library(dplyr)
 library(radarchart)
+library(reshape2)
+library(rlang)
+library(plyr)
 setwd("C:/Users/Serina Brenner/Documents/GitHub/Text-Analytics")
 mysearch <- read.csv(file="search.csv", header=TRUE, sep=",")
 
@@ -108,7 +111,7 @@ tf2 <- rowSums(tfidf_tdm2_m)
 tf2 <- sort(tf2,dec=TRUE)
 # word frequency
 word_freqs2 <- data.frame(term = names(tf2), num = tf2)
-wordcloud(word_freqs$term, word_freqs2$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
+wordcloud(word_freqs2$term, word_freqs2$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
 
 
 # Trigram 
@@ -119,59 +122,21 @@ tf3 <- rowSums(tfidf_tdm3_m)
 tf3 <- sort(tf3,dec=TRUE)
 # word frequency
 word_freqs3 <- data.frame(term = names(tf3), num = tf3)
-wordcloud(word_freqs$term, word_freqs3$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
+wordcloud(word_freqs3$term, word_freqs3$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Positive and Negatives
+# Pos Neg Sentiments
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Emoji Sentiment Polarity Lookup Tables
-emojis <- data(hash_sentiment_emojis)
 
-nrc_lex <- get_sentiments("nrc")
-table(nrc_lex$sentiment)
+# dictionaries
+qdapDictionaries::positive.words
+qdapDictionaries::negative.words
+qdapDictionaries::amplification.words
+qdapDictionaries::deamplification.words
+qdapDictionaries::negation.words
 
-loughran_lex <- get_sentiments("loughran")
-table(loughran_lex$sentiment)
-
-psc <- c()
-# Get polarity score the dirty way
-for(i in 1:nrow(mysearch))
-{
-  # Text as Variable
-  stg <- i$text
-  
-  # Polarity Table
-  tbl <- polarity(stg)
-  
-  # Counts
-  cnt <- count(tbl)
-  
-  # Number of Positive Words
-  pos <- length(cnt$pos.words[[1]])
-  
-  # Total Number of Words
-  wds <- cnt$wc
-  
-  # Verify Polarity Score
-  pol <- pos / sqrt(wds)
-  
-  # Add Polarity Score to Dataframe
-  psc <- rbind(psc, pol)
-}
-
-# Try Something Different
-mysearch$text <- iconv(mysearch$text, from = "UTF-8", to = "ASCII", sub = "")
-
-clean_corpus <- function(cleaned_corpus){
-  cleaned_corpus <- tm_map(cleaned_corpus, removeWords, stopwords("english"))
-  cleaned_corpus <- tm_map(cleaned_corpus, stripWhitespace)
-  return(cleaned_corpus)
-}
-
-review_corpus <- VCorpus(VectorSource(mysearch$text))
-cleaned_review_corpus <- clean_corpus(review_corpus)
-
-tidy_mytext <- tidy(TermDocumentMatrix(cleaned_review_corpus))
+# use bing lexicon to create sentiment graph
+tidy_mytext <- tidy(TermDocumentMatrix(cleaned_mysearch_corp))
 bing_lex <- get_sentiments("bing")
 mytext_bing <- inner_join(tidy_mytext, bing_lex, by = c("term" = "word"))
 mytext_bing$sentiment_n <- ifelse(mytext_bing$sentiment=="negative", -1, 1)
@@ -179,6 +144,10 @@ mytext_bing$sentiment_score <- mytext_bing$count*mytext_bing$sentiment_n
 aggdata <- aggregate(mytext_bing$sentiment_score, list(index = mytext_bing$document), sum)
 sapply(aggdata,typeof)
 aggdata$index <- as.numeric(aggdata$index)
+ggplot(aggdata, aes(index, x)) + geom_point() 
+ggplot(aggdata, aes(index, x)) + geom_smooth() + theme_bw()+
+  geom_hline(yintercept = 0, color = "red")+xlab("sentence")+ylab("sentiment")+
+  ggtitle("Sentiment")
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Split into 2 sets (positive and negative)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
@@ -188,9 +157,17 @@ aggdata$index <- as.numeric(aggdata$index)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Comparison Cloud (positive and negative)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
+tidy_mytext %>%
+  inner_join(tidy_mytext, bing_lex, by = c("term" = "word")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
 
-
-
+count(mytext_bing$term, mytext_bing$sentiment, sort = TRUE) %>%
+  acast(mytext_bing$term ~ mytext_bing$sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Commonality Cloud (shared words)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
@@ -200,6 +177,10 @@ aggdata$index <- as.numeric(aggdata$index)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Radar Chart
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-
-
+tidy_mytext <- tidy(TermDocumentMatrix(cleaned_mysearch_corp))
+nrc_lex <- get_sentiments("nrc")
+story_nrc <- inner_join(tidy_mytext, nrc_lex, by = c("term" = "word"))
+story_nrc_noposneg <- story_nrc[!(story_nrc$sentiment %in% c("positive","negative")),]
+aggdata <- aggregate(story_nrc_noposneg$count, list(index = story_nrc_noposneg$sentiment), sum)
+chartJSRadar(aggdata)
 
