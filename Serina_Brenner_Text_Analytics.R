@@ -13,42 +13,32 @@ library(tidytext)
 library(gutenbergr)
 library(dplyr)
 library(radarchart)
-
 setwd("C:/Users/Serina Brenner/Documents/GitHub/Text-Analytics")
-
-
-mysearch <- read.csv(file="tableau_text.csv", header=TRUE, sep=",")
+mysearch <- read.csv(file="search.csv", header=TRUE, sep=",")
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Cleaning
+# Cleaning MySearch
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-# remove non alpha numeric characters 
+# remove any non funky characters in "text" column
 mysearch$text <- iconv(mysearch$text, from = "UTF-8", to = "ASCII", sub = "")
 
-# making a corpus of a vector source 
+# vector source corpus - cleaning and preprocessing
 mysearch_corp <- VCorpus(VectorSource(mysearch$text))
-# Cleaning corpus - pre_processing
 clean_corpus <- function(cleaned_corpus){
-  removeURL <- content_transformer(function(x) gsub("(f|ht)tp(s?)://\\S+", "", x, perl=T))
-  cleaned_corpus <- tm_map(cleaned_corpus, removeURL)
-  cleaned_corpus <- tm_map(cleaned_corpus, content_transformer(replace_abbreviation))
-  cleaned_corpus <- tm_map(cleaned_corpus, content_transformer(tolower))
-  cleaned_corpus <- tm_map(cleaned_corpus, removePunctuation)
-  cleaned_corpus <- tm_map(cleaned_corpus, content_transformer(replace_number))
-  cleaned_corpus <- tm_map(cleaned_corpus, removeWords, stopwords("english"))
-  # available stopwords
-  # stopwords::stopwords()
+  removeURL <- content_transformer(function(x) gsub("(f|ht)tp(s?)://\\S+", "", x, perl=T)) # create function
+  cleaned_corpus <- tm_map(cleaned_corpus, removeURL)                                      # use function to remove urls
+  cleaned_corpus <- tm_map(cleaned_corpus, content_transformer(replace_abbreviation))      # replace abbreviations
+  cleaned_corpus <- tm_map(cleaned_corpus, content_transformer(tolower))                   # replace capital letters with lowercase
+  cleaned_corpus <- tm_map(cleaned_corpus, removePunctuation)                              # remove punctuation
+  cleaned_corpus <- tm_map(cleaned_corpus, removeWords, stopwords("english"))              # remove common stopwords
   
-  # Add any custom stop words here
-  custom_stop_words <- c("")
+  # custom stopwords
+  custom_stop_words <- c("pizza","pinneapple", "hawaiian", "rt", "wsj")
   cleaned_corpus <- tm_map(cleaned_corpus, removeWords, custom_stop_words)
-  # cleaned_corpus <- tm_map(cleaned_corpus, stemDocument,language = "english")
   cleaned_corpus <- tm_map(cleaned_corpus, stripWhitespace)
   return(cleaned_corpus)
 }
-
-
 cleaned_mysearch_corp <- clean_corpus(mysearch_corp)
 
 # TDM/ DTM 
@@ -59,102 +49,77 @@ TDM_mysearch_m <- as.matrix(TDM_mysearch)
 term_frequency <- rowSums(TDM_mysearch_m)
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Unigram
+# Unigram (one word) wordcloud
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 word_freqs <- data.frame(term = names(term_frequency), num = term_frequency)
-
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs$term, word_freqs$num,min.freq=5,max.words=2000,colors=brewer.pal(10,"BrBG"))
+wordcloud(word_freqs$term, word_freqs$num,min.freq=5,max.words=200,colors=brewer.pal(9,"Blues"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Bigram
+# Bigram (two words) wordcloud
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 tokenizer2 <- function(x)
-  NGramTokenizer(x,Weka_control(min=2,max=2)) # this is number of words shown together
-
-bigram_tdm <- TermDocumentMatrix(cleaned_mysearch_corp,control = list(tokenize=tokenizer2))
-bigram_tdm_m <- as.matrix(bigram_tdm)
-
-# Term Frequency
-term_frequency2 <- rowSums(bigram_tdm_m)
-# Sort term_frequency in descending order
-term_frequency2 <- sort(term_frequency2,dec=TRUE)
-
-# Create word_freqs
-word_freqs2 <- data.frame(term = names(term_frequency2), num = term_frequency2)
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs2$term, word_freqs2$num,min.freq=5,max.words=2000,colors=brewer.pal(8, "BrBG"))
+  NGramTokenizer(x,Weka_control(min=2,max=2)) # two words shown
+bigramtdm <- TermDocumentMatrix(cleaned_mysearch_corp,control = list(tokenize=tokenizer2))
+bigramtdmmat <- as.matrix(bigramtdm)
+# Term Frequency desc
+tf2 <- rowSums(bigramtdmmat)
+tf2 <- sort(tf2,dec=TRUE)
+# word frequency
+word_freqs2 <- data.frame(term = names(tf2), num = tf2)
+wordcloud(word_freqs2$term, word_freqs2$num,min.freq=5,max.words=200,colors=brewer.pal(9,"Blues"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Trigram
+# Trigram (three words) wordcloud
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 tokenizer3 <- function(x)
-  NGramTokenizer(x,Weka_control(min=3,max=3)) # this is number of words shown together
-
+  NGramTokenizer(x,Weka_control(min=3,max=3)) # three words shown
 trigram_tdm <- TermDocumentMatrix(cleaned_mysearch_corp,control = list(tokenize=tokenizer3))
 trigram_tdm_m <- as.matrix(trigram_tdm)
-
-# Term Frequency
-term_frequency3 <- rowSums(trigram_tdm_m)
-# Sort term_frequency in descending order
-term_frequency3 <- sort(term_frequency3,dec=TRUE)
-
-# Create word_freqs
-word_freqs3 <- data.frame(term = names(term_frequency3), num = term_frequency3)
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs3$term, word_freqs3$num,min.freq=5,max.words=2000,colors=brewer.pal(8, "BrBG"))
+# Term Frequency desc
+tf3 <- rowSums(trigram_tdm_m)
+tf3 <- sort(tf3,dec=TRUE)
+# word frequency
+word_freqs3 <- data.frame(term = names(tf3), num = tf3)
+wordcloud(word_freqs3$term, word_freqs3$num,min.freq=5,max.words=200,colors=brewer.pal(9,"Blues"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# TF - IDF
-# Term Frequencies and Inverse Document Frequencies
+# Inverse Document Frequencies
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 # Unigram 
 tfidf_tdm <- TermDocumentMatrix(cleaned_mysearch_corp,control=list(weighting=weightTfIdf))
 tfidf_tdm_m <- as.matrix(tfidf_tdm)
-
-# Term Frequency
+# Term Frequency desc
 term_frequency <- rowSums(tfidf_tdm_m)
-# Sort term_frequency in descending order
 term_frequency <- sort(term_frequency,dec=TRUE)
-
-# Create word_freqs
+# word frequency
 word_freqs <- data.frame(term = names(term_frequency), num = term_frequency)
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs$term, word_freqs$num,min.freq=5,max.words=2000,colors=brewer.pal(8, "Paired"))
+wordcloud(word_freqs$term, word_freqs$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
 
 
 # Bigram
 tfidf_tdm2 <- TermDocumentMatrix(cleaned_mysearch_corp,control = list(tokenize=tokenizer2, weighting=weightTfIdf))
 tfidf_tdm2_m <- as.matrix(tfidf_tdm2)
-
-# Term Frequency
-term_frequency2 <- rowSums(tfidf_tdm2_m)
-# Sort term_frequency in descending order
-term_frequency2 <- sort(term_frequency2,dec=TRUE)
-
-# Create word_freqs
-word_freqs2 <- data.frame(term = names(term_frequency2), num = term_frequency2)
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs$term, word_freqs2$num,min.freq=5,max.words=2000,colors=brewer.pal(8, "Paired"))
+# Term Frequency desc
+tf2 <- rowSums(tfidf_tdm2_m)
+tf2 <- sort(tf2,dec=TRUE)
+# word frequency
+word_freqs2 <- data.frame(term = names(tf2), num = tf2)
+wordcloud(word_freqs$term, word_freqs2$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
 
 
 # Trigram 
 tfidf_tdm3 <- TermDocumentMatrix(cleaned_mysearch_corp,control = list(tokenize=tokenizer3, weighting=weightTfIdf))
 tfidf_tdm3_m <- as.matrix(tfidf_tdm3)
-
-# Term Frequency
-term_frequency3 <- rowSums(tfidf_tdm3_m)
-# Sort term_frequency in descending order
-term_frequency3 <- sort(term_frequency3,dec=TRUE)
-
-# Create word_freqs
-word_freqs3 <- data.frame(term = names(term_frequency3), num = term_frequency3)
-# Create a wordcloud for the values in word_freqs
-wordcloud(word_freqs$term, word_freqs3$num,min.freq=5,max.words=2000,colors=brewer.pal(8, "Paired"))
+# Term Frequency desc
+tf3 <- rowSums(tfidf_tdm3_m)
+tf3 <- sort(tf3,dec=TRUE)
+# word frequency
+word_freqs3 <- data.frame(term = names(tf3), num = tf3)
+wordcloud(word_freqs$term, word_freqs3$num,min.freq=5,max.words=500,colors=brewer.pal(9,"Blues"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Positive and Negatives
