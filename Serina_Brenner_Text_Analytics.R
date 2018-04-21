@@ -149,7 +149,7 @@ ggplot(aggdata, aes(index, x)) + geom_smooth() + theme_bw()+
   geom_hline(yintercept = 0, color = "red")+xlab("sentence")+ylab("sentiment")+
   ggtitle("Sentiment")
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Split into 2 sets (positive and negative)
+# Prep for comparison and commonality clouds
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 # separate text by pos and neg sentiments after joined with bing 
@@ -170,14 +170,14 @@ tdm = as.matrix(tdm)
 colnames(tdm) = labels
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Comparison Cloud (positive and negative)
+# Comparison Cloud
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-comparison.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
+comparison.cloud(tdm, colors = brewer.pal(senlen, "Set1"),
                  scale = c(3,.5), random.order = FALSE, title.size = 1.5)
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-# Commonality Cloud (shared words)
+# Commonality Cloud 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
 commonality.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
@@ -186,10 +186,35 @@ commonality.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Radar Chart
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-tidy_mytext <- tidy(TermDocumentMatrix(cleaned_mysearch_corp))
+tidy_mytextrc <- tidy(TermDocumentMatrix(cleaned_mysearch_corp))
 nrc_lex <- get_sentiments("nrc")
-story_nrc <- inner_join(tidy_mytext, nrc_lex, by = c("term" = "word"))
+story_nrc <- inner_join(tidy_mytextrc, nrc_lex, by = c("term" = "word"))
 story_nrc_noposneg <- story_nrc[!(story_nrc$sentiment %in% c("positive","negative")),]
 aggdata <- aggregate(story_nrc_noposneg$count, list(index = story_nrc_noposneg$sentiment), sum)
 chartJSRadar(aggdata)
+
+#-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
+# try comparison on radar
+#-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
+
+# separate text by pos and neg sentiments after joined with bing 
+sentsrc = levels(factor(story_nrc$sentiment))
+labelsrc <- lapply(sentsrc, function(x) paste(x,format(round((length((story_nrc[story_nrc$sentiment ==x,])$term)/length(story_nrc$sentiment)*100),.5),nsmall=.5),"%"))
+
+senlenrc = length(sentsrc)
+emorc.docs = rep("", senlenrc)
+for (i in 1:senlenrc)
+{
+  tmprc = story_nrc[story_nrc$sentiment == sentsrc[i],]$term
+  
+  emorc.docs[i] = paste(tmprc,collapse=" ")
+}
+corpusrc = Corpus(VectorSource(emorc.docs))
+tdmrc = TermDocumentMatrix(corpusrc)
+tdmrc = as.matrix(tdmrc)
+colnames(tdmrc) = labelsrc
+
+
+comparison.cloud(tdmrc, colors = brewer.pal(senlenrc, "Set3"),
+                 scale = c(3,.5), random.order = FALSE, title.size = 1.5)
 
