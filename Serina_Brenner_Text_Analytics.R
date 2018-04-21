@@ -152,27 +152,36 @@ ggplot(aggdata, aes(index, x)) + geom_smooth() + theme_bw()+
 # Split into 2 sets (positive and negative)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
+# separate text by pos and neg sentiments after joined with bing 
+sents = levels(factor(mytext_bing$sentiment))
+labels <- lapply(sents, function(x) paste(x,format(round((length((mytext_bing[mytext_bing$sentiment ==x,])$term)/length(mytext_bing$sentiment)*100),2),nsmall=2),"%"))
 
+senlen = length(sents)
+emo.docs = rep("", senlen)
+for (i in 1:senlen)
+{
+  tmp = mytext_bing[mytext_bing$sentiment == sents[i],]$term
+  
+  emo.docs[i] = paste(tmp,collapse=" ")
+}
+corpus = Corpus(VectorSource(emo.docs))
+tdm = TermDocumentMatrix(corpus)
+tdm = as.matrix(tdm)
+colnames(tdm) = labels
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Comparison Cloud (positive and negative)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
-tidy_mytext %>%
-  inner_join(tidy_mytext, bing_lex, by = c("term" = "word")) %>%
-  count(word, sentiment, sort = TRUE) %>%
-  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
-  comparison.cloud(colors = c("gray20", "gray80"),
-                   max.words = 100)
 
-count(mytext_bing$term, mytext_bing$sentiment, sort = TRUE) %>%
-  acast(mytext_bing$term ~ mytext_bing$sentiment, value.var = "n", fill = 0) %>%
-  comparison.cloud(colors = c("gray20", "gray80"),
-                   max.words = 100)
+comparison.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
+                 scale = c(3,.5), random.order = FALSE, title.size = 1.5)
+
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Commonality Cloud (shared words)
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-
+commonality.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
+                 scale = c(3,.5), random.order = FALSE, title.size = 1.5)
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Radar Chart
