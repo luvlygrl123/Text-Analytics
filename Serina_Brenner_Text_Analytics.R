@@ -17,7 +17,7 @@ library(reshape2)
 library(rlang)
 library(plyr)
 setwd("C:/Users/Serina Brenner/Documents/GitHub/Text-Analytics")
-mysearch <- read.csv(file="search.csv", header=TRUE, sep=",")
+mysearch <- read.csv(file="search.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Cleaning MySearch
@@ -164,24 +164,43 @@ for (i in 1:senlen)
   
   emo.docs[i] = paste(tmp,collapse=" ")
 }
-corpus = Corpus(VectorSource(emo.docs))
-tdm = TermDocumentMatrix(corpus)
+corp = Corpus(VectorSource(emo.docs))
+tdm = TermDocumentMatrix(corp)
 tdm = as.matrix(tdm)
 colnames(tdm) = labels
+
+# commonality cloud
+
+mysearch$text <- iconv(mysearch$text, from = "UTF-8", to = "ASCII", sub = "")
+mysearch$text <- removePunctuation(mysearch$text)
+# add pos neg
+(sentiment_text<- polarity(mysearch$text))
+mysearch$sent <- sentiment_text$all$polarity
+text_counts <- counts(sentiment_text)
+pos1 <- mysearch[mysearch[ , 17] >0.0, ]
+neg1 <- mysearch[mysearch[ , 17] <0.0, ]
+pos1$text
+# puts text into string
+pos2<- paste(unlist(pos1$text), collapse =" ")
+neg2<- paste(unlist(neg1$text), collapse =" ")
+plusmin <- c(pos2,neg2)
+corp2 <- VCorpus(VectorSource(plusmin))
+corp2 <- clean_corpus(corp2)
+tdm2 <- TermDocumentMatrix(corp2)
+tdmatx <- as.matrix(tdm2)
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Comparison Cloud
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-comparison.cloud(tdm, colors = brewer.pal(senlen, "Set1"),
-                 scale = c(3,.5), random.order = FALSE, title.size = 1.5)
+comparison.cloud(tdm, colors = brewer.pal(senlen, "Set1"), scale = c(3,.5), random.order = FALSE, title.size = 1.5)
+
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Commonality Cloud 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-commonality.cloud(tdm, colors = brewer.pal(senlen, "Dark2"),
-                 scale = c(3,.5), random.order = FALSE, title.size = 1.5)
+commonality.cloud(TDM_tweet_matrix, scale=c(5,1), max.words = 200,colors=brewer.pal(8, "Paired"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Radar Chart
@@ -215,6 +234,6 @@ tdmrc = as.matrix(tdmrc)
 colnames(tdmrc) = labelsrc
 
 
-comparison.cloud(tdmrc, colors = brewer.pal(senlenrc, "Set3"),
+comparison.cloud(tdmrc, colors = brewer.pal(senlenrc, "Paired"),
                  scale = c(3,.5), random.order = FALSE, title.size = 1.5)
 
