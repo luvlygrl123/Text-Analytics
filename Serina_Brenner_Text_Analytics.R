@@ -200,7 +200,7 @@ comparison.cloud(tdm, colors = brewer.pal(senlen, "Set1"), scale = c(3,.5), rand
 # Commonality Cloud 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 
-commonality.cloud(TDM_tweet_matrix, scale=c(5,1), max.words = 200,colors=brewer.pal(8, "Paired"))
+commonality.cloud(tdmatx, scale=c(5,1), max.words = 200,colors=brewer.pal(8, "Paired"))
 
 #-- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o -- o --
 # Radar Chart
